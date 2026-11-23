@@ -96,6 +96,44 @@ test("vanilla 模板生成完整工程并能打包", () => {
   assert.equal(archive.subarray(0, 4).toString("hex"), "504b0304");
 });
 
+test("simple 模板生成仿启动器布局并且可直接打包", () => {
+  const target = tempProject();
+  const result = runCli([
+    target,
+    "--yes",
+    "--template",
+    "simple",
+    "--identifier",
+    "com.example.simple",
+    "--name",
+    "Simple UI",
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+
+  const frontend = join(target, "frontend");
+  for (const name of ["index.html", "app.js", "kernel.js", "styles.css"]) {
+    assert.ok(readdirSync(frontend).includes(name), `缺少 ${name}`);
+  }
+
+  const html = readFileSync(join(frontend, "index.html"), "utf8");
+  assert.match(html, /data-page="home"/);
+  assert.ok(html.includes("Simple UI"), "HTML 里应写入显示名称");
+
+  const app = readFileSync(join(frontend, "app.js"), "utf8");
+  assert.match(app, /launch_game/);
+  assert.match(app, /select_instance/);
+
+  const packageJson = JSON.parse(readFileSync(join(target, "package.json"), "utf8"));
+  assert.equal(packageJson.scripts.build, "node scripts/pack.mjs frontend");
+
+  const pack = runNode([join(target, "scripts", "pack.mjs"), "frontend"], { cwd: target });
+  assert.equal(pack.status, 0, pack.stderr);
+  const archive = readFileSync(
+    join(target, "dist-frontends", "com.example.simple-0.1.0.mcuglf"),
+  );
+  assert.equal(archive.subarray(0, 4).toString("hex"), "504b0304");
+});
+
 test("vite-react 模板包含可构建的配置", () => {
   const target = tempProject();
   const result = runCli([

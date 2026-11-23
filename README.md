@@ -43,7 +43,7 @@ system locale (`LANG`/`LC_ALL`) clearly asks for it.
 ```text
 mcugl-buildtool [directory] [options]
 
-  -t, --template <name>    vanilla (default) | vite-react
+  -t, --template <name>    vanilla (default) | simple | vite-react
       --identifier <id>    reverse-DNS id, e.g. com.example.my-frontend
       --name <name>        display name
       --description <text> description (optional)
@@ -79,6 +79,30 @@ my-frontend/
 │  └─ styles.css
 ├─ scripts/pack.mjs        # zero-dependency zip + sha256
 └─ package.json            # npm run pack
+```
+
+```powershell
+$env:MCUGL_FRONTEND = "D:\path\to\my-frontend\frontend"
+```
+
+### `simple`
+
+A launcher-like starting point with **minimal CSS and no build step**: a top bar with
+home/instances/accounts/settings navigation, an overview with counts, instance and account pickers,
+a floating launch button, and toasts. It mirrors the official layout instead of the `vite-react`
+command console, so it is the friendlier base for a custom launcher UI. It covers the core flow
+(selection + launch + log), not the whole command surface — see [Functional parity](#functional-parity).
+
+```text
+my-frontend/
+├─ frontend/
+│  ├─ frontend.json
+│  ├─ index.html            # shell: top bar, nav, view container, launch button, toast
+│  ├─ kernel.js             # thin invoke wrapper + KernelError
+│  ├─ app.js                # pages, selection, launch, log
+│  └─ styles.css            # small, replaceable stylesheet
+├─ scripts/pack.mjs
+└─ package.json             # npm run pack / build
 ```
 
 ```powershell
@@ -121,6 +145,8 @@ kernel-side fallback UI.
 
 - `vite-react` is the baseline: its `actions.ts` catalog is the checklist, and the page shows
   `covered/total` plus any missing method.
+- `simple` and `vanilla` are layout starting points; extend them with the missing commands before
+  shipping.
 - The demo backend answers 28 write commands with `UNSUPPORTED`; show that error instead of hiding the
   action.
 - Before packing, diff your catalog against `kernel_manifest.methods`; the reference template makes that
@@ -164,6 +190,6 @@ file; the launcher unpacks it into `.dev/` inside its data directory.
 npm test
 ```
 
-The suite generates both template projects, packs the `vanilla` one, and checks the zip header and
-artifact name. It also drives the key state machines, the three prompts, the full wizard through a fake
-terminal, and the i18n catalogs (22 cases).
+The suite generates all three template projects, packs the `vanilla` and `simple` ones, and checks the
+zip header and artifact name. It also drives the key state machines, the three prompts, the full wizard
+through a fake terminal, and the i18n catalogs (23 cases).

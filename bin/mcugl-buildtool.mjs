@@ -30,6 +30,10 @@ function printNextSteps(target, template) {
     console.log(t("nextEnvDist"));
     console.log(t("nextRefresh"));
     console.log(t("nextBuildProd"));
+  } else if (template === "simple") {
+    console.log(t("nextEnvFrontend"));
+    console.log(t("nextRefresh"));
+    console.log(t("nextSimpleNote"));
   } else {
     console.log(t("nextEnvFrontend"));
     console.log(t("nextRefresh"));
@@ -111,6 +115,7 @@ async function main() {
           message: t("qTemplate"),
           options: [
             { value: "vanilla", label: `${t("tplVanilla")} — ${t("tplVanillaDesc")}` },
+            { value: "simple", label: `${t("tplSimple")} — ${t("tplSimpleDesc")}` },
             { value: "vite-react", label: `${t("tplVite")} — ${t("tplViteDesc")}` },
           ],
           fallback: 0,

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{{name}}</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">{{name}}</div>
+      <nav class="nav" id="nav">
+        <button type="button" data-page="home" aria-current="page">首页</button>
+        <button type="button" data-page="instances">实例</button>
+        <button type="button" data-page="accounts">账号</button>
+        <button type="button" data-page="settings">设置</button>
+      </nav>
+      <span class="status" id="status">连接中…</span>
+    </header>
+
+    <main class="page" id="view">
+      <p class="muted">正在连接 MCUGL 内核…</p>
+    </main>
+
+    <button class="launch" id="launch" type="button" title="启动游戏" disabled>▶</button>
+    <div class="toast" id="toast" hidden></div>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
