@@ -1,0 +1,8 @@
+node_modules/
+dist/
+dist-frontends/
+.idea/
+*.tgz
+*.mcuglf
+npm-debug.log*
+.DS_Store

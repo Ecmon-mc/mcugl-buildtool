@@ -1,0 +1,10 @@
+{
+  "name": "{{packageName}}",
+  "private": true,
+  "version": "{{version}}",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/pack.mjs frontend",
+    "pack": "node scripts/pack.mjs frontend"
+  }
+}
