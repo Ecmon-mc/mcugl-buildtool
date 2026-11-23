@@ -1,4 +1,4 @@
-// 向导集成测试：假终端里按 8 次 Enter（第 1 次选语言，其余用默认值），走完整流程并生成工程。
+// 向导集成测试：假终端里按 9 次 Enter（第 1 次选语言，其余用默认值），走完整流程并生成工程。
 import { EventEmitter } from "node:events";
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
@@ -31,7 +31,7 @@ test("向导收集参数并生成工程", async () => {
     const stdout = { isTTY: true, write() {} };
     const pending = runWizard({ cwd: base, version: "0.1.0", stdin, stdout });
 
-    for (let i = 0; i < 8; i += 1) {
+    for (let i = 0; i < 9; i += 1) {
       await tick();
       stdin.emit("keypress", "\r", { name: "return" });
     }
@@ -62,8 +62,8 @@ test("目录非空且拒绝覆盖时抛 CancelledError", async () => {
       rejected = error;
     });
 
-    // 8 个普通问题（含语言）+ 覆盖确认（默认「否」）
-    for (let i = 0; i < 9; i += 1) {
+    // 9 个普通问题（含语言）+ 覆盖确认（默认「否」）
+    for (let i = 0; i < 10; i += 1) {
       await tick();
       stdin.emit("keypress", "\r", { name: "return" });
     }
@@ -92,7 +92,7 @@ test("向导第一问可切换成中文", async () => {
     await tick();
     stdin.emit("keypress", "\u001b[B", { name: "down" });
     stdin.emit("keypress", "\r", { name: "return" });
-    for (let i = 0; i < 7; i += 1) {
+    for (let i = 0; i < 8; i += 1) {
       await tick();
       stdin.emit("keypress", "\r", { name: "return" });
     }

@@ -10,14 +10,30 @@
 // 包内约定见 MCUGL 的 docs/FRONTEND_PACKAGE.md：根目录必须有 frontend.json。
 
 import { createHash } from "node:crypto";
-import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import { deflateRawSync } from "node:zlib";
 
 const SKIP_DIRS = new Set([".git", "node_modules", "dist-frontends", ".staging"]);
 const MAX_ENTRY_BYTES = 128 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 256 * 1024 * 1024;
 const MAX_ENTRIES = 2048;
+// 只有可能包含 invoke 名称的文本文件参与覆盖扫描；图片、字体等直接跳过。
+const TEXT_EXTENSIONS = new Set([
+  ".html",
+  ".htm",
+  ".js",
+  ".mjs",
+  ".cjs",
+  ".jsx",
+  ".ts",
+  ".tsx",
+  ".json",
+  ".css",
+  ".vue",
+  ".svelte",
+]);
 
 function fail(message) {
   console.error(`[frontend:pack] ${message}`);
@@ -25,7 +41,7 @@ function fail(message) {
 }
 
 function printHelp() {
-  console.log(`用法：node scripts/pack.mjs <前端目录> [--out <文件.mcuglf>]
+  console.log(`用法：node scripts/pack.mjs <前端目录> [--out <文件.mcuglf>] [--allow-incomplete]
 
 目录根部必须包含 frontend.json：
   {
@@ -36,17 +52,23 @@ function printHelp() {
     "entry": "index.html"
   }
 
-输出默认写到 dist-frontends/<identifier>-<version>.mcuglf。`);
+输出默认写到 dist-frontends/<identifier>-<version>.mcuglf。
+
+功能对等检查：分发级前端必须覆盖 kernel-methods.json 里的全部 66 个内核方法
+（前端管理命令除外）。缺少方法时打包会失败；--allow-incomplete 仅用于预览版。`);
 }
 
 function parseArgs(argv) {
   const positional = [];
   let output = null;
+  let allowIncomplete = false;
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === "--out" || arg === "-o") {
       output = argv[++index];
       if (!output) fail("--out 后面需要一个输出路径");
+    } else if (arg === "--allow-incomplete") {
+      allowIncomplete = true;
     } else if (arg === "--help" || arg === "-h") {
       printHelp();
       process.exit(0);
@@ -58,7 +80,48 @@ function parseArgs(argv) {
     printHelp();
     fail("需要一个前端目录。");
   }
-  return { dir: positional[0], output };
+  return { dir: positional[0], output, allowIncomplete };
+}
+
+// 方法清单随脚手架复制到 scripts/kernel-methods.json；直接运行 shared/ 下的副本时
+// 也能从同目录读到。缺失时跳过检查（不阻塞手工打包）。
+function loadKernelMethods() {
+  const file = join(dirname(fileURLToPath(import.meta.url)), "kernel-methods.json");
+  if (!existsSync(file)) return null;
+  try {
+    const parsed = JSON.parse(readFileSync(file, "utf8"));
+    return Array.isArray(parsed.methods) ? parsed.methods : null;
+  } catch {
+    return null;
+  }
+}
+
+function scanCoverage(files, methods) {
+  const covered = new Set();
+  const wanted = new Set(methods);
+  for (const { file } of files) {
+    const extension = file.slice(file.lastIndexOf(".")).toLowerCase();
+    if (!TEXT_EXTENSIONS.has(extension)) continue;
+    let text;
+    try {
+      text = readFileSync(file, "utf8");
+    } catch {
+      continue;
+    }
+    if (!text.includes("_")) continue;
+    for (const method of wanted) {
+      if (covered.has(method)) continue;
+      // 压缩器会把引号统一成反引号（例如 Fl(`get_overview`)），三种都要认。
+      if (
+        text.includes(`"${method}"`) ||
+        text.includes(`'${method}'`) ||
+        text.includes(`\`${method}\``)
+      ) {
+        covered.add(method);
+      }
+    }
+  }
+  return methods.filter((method) => !covered.has(method));
 }
 
 function dosDateTime(date) {
@@ -177,7 +240,7 @@ function buildZip(files) {
   return Buffer.concat([...localParts, ...centralParts, end]);
 }
 
-const { dir: input, output } = parseArgs(process.argv.slice(2));
+const { dir: input, output, allowIncomplete } = parseArgs(process.argv.slice(2));
 const root = resolve(input);
 const manifestPath = join(root, "frontend.json");
 
@@ -215,6 +278,36 @@ if (files.length === 0) fail("目录是空的");
 if (files.length > MAX_ENTRIES) fail(`文件数超过 ${MAX_ENTRIES}`);
 if (!files.some((file) => file.name === "frontend.json")) fail("打包后缺少 frontend.json");
 
+// 功能对等检查：第三方前端是整页替换，缺命令就等于删功能，所以在打包期拦一次。
+const kernelMethods = loadKernelMethods();
+const allowPreview =
+  allowIncomplete || process.env.MCUGL_PACK_ALLOW_INCOMPLETE === "1";
+let coverageLine = null;
+if (kernelMethods) {
+  const missing = scanCoverage(files, kernelMethods);
+  const covered = kernelMethods.length - missing.length;
+  if (missing.length > 0) {
+    if (!allowPreview) {
+      console.error(
+        `[frontend:pack] 功能覆盖不足：${covered}/${kernelMethods.length} 个内核方法，缺少 ${missing.length} 个：`,
+      );
+      for (const name of missing) console.error(`  - ${name}`);
+      console.error(
+        "分发级前端必须覆盖 kernel-methods.json 里的全部方法（前端管理命令除外）。\n" +
+          "补全后重试；如果只是打预览包，加 --allow-incomplete。",
+      );
+      process.exit(1);
+    }
+    console.warn(
+      `[frontend:pack] 覆盖 ${covered}/${kernelMethods.length}，缺 ${missing.length} 个（预览包，--allow-incomplete）`,
+    );
+  } else {
+    coverageLine = `  覆盖：${covered}/${kernelMethods.length} 个内核方法`;
+  }
+} else {
+  console.warn("[frontend:pack] 未找到 scripts/kernel-methods.json，跳过功能覆盖检查");
+}
+
 const zip = buildZip(files);
 const target = output
   ? resolve(output)
@@ -231,3 +324,4 @@ console.log(
 );
 console.log(`  产物：${target}（${kb} KiB）`);
 console.log(`  sha256：${sha256}`);
+if (coverageLine) console.log(coverageLine);

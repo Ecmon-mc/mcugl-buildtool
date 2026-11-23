@@ -17,15 +17,16 @@ After publishing, the same thing is `npx mcugl-buildtool my-frontend`.
 
 > **This package has no build step of its own.** Running `npm run build` inside `mcugl-buildtool/`
 > only prints an explanation. Real builds happen in the generated project: `vite-react` compiles with
-> Vite, while `vanilla` treats `npm run build` as an alias of `npm run pack`.
+> Vite, while `vanilla`/`simple` treat `npm run build` as an alias of `npm run pack`.
 > `npx mcugl-buildtool` works from any directory.
 
 ## Interactive wizard
 
 Run the tool with no arguments in a real terminal and it opens a guided wizard, similar to SJMCL's
-`create-sjmcl-extension`: language → project directory → template → frontend identifier → display name →
-description → author → version. Use ↑/↓ to move, Enter to confirm, Esc or Ctrl+C to cancel. If the
-target directory is not empty, you are asked before anything is overwritten.
+`create-sjmcl-extension`: language → project directory → stack (vanilla / vite-react) → layout (dev /
+simple) → frontend identifier → display name → description → author → version. Use ↑/↓ to move, Enter
+to confirm, Esc or Ctrl+C to cancel. If the target directory is not empty, you are asked before
+anything is overwritten.
 
 The wizard is implemented in-package with zero dependencies (`lib/keys.mjs` for key handling,
 `lib/ui.mjs` for rendering and prompts, `lib/wizard.mjs` for the flow, `lib/i18n.mjs` for copy), so it
@@ -43,7 +44,8 @@ system locale (`LANG`/`LC_ALL`) clearly asks for it.
 ```text
 mcugl-buildtool [directory] [options]
 
-  -t, --template <name>    vanilla (default) | simple | vite-react
+  -t, --template <name>    stack: vanilla (default) | vite-react, or a final id (simple, vite-react-simple)
+      --layout <name>      layout: dev (default) | simple
       --identifier <id>    reverse-DNS id, e.g. com.example.my-frontend
       --name <name>        display name
       --description <text> description (optional)
@@ -60,10 +62,23 @@ Examples:
 ```powershell
 npx mcugl-buildtool my-frontend --yes
 npx mcugl-buildtool my-frontend -t vite-react --identifier com.example.demo --name "Demo Frontend"
+npx mcugl-buildtool my-frontend --yes -t vite-react --layout simple
 npx mcugl-buildtool my-frontend --yes --lang zh
 ```
 
 ## Templates
+
+A template is the combination of a **stack** and a **layout**:
+
+| id | stack | layout | build |
+| --- | --- | --- | --- |
+| `vanilla` | vanilla | dev | none |
+| `simple` | vanilla | simple | none |
+| `vite-react` | vite-react | dev | Vite |
+| `vite-react-simple` | vite-react | simple | Vite |
+
+`-t` takes the stack (plus `--layout`), or a final id directly: `-t vanilla`, `-t simple`,
+`-t vite-react`, `-t vite-react-simple`.
 
 ### `vanilla`
 
@@ -136,6 +151,24 @@ $env:MCUGL_FRONTEND = "D:\path\to\my-frontend\dist\frontend"
 > The launcher serves the frontend from disk through its `mcugl` protocol, not from the Vite dev
 > server, so there is no HMR. The development loop is "rebuild on change, then refresh the window".
 
+### `vite-react-simple`
+
+The `simple` layout on the `vite-react` stack: React 19 + TypeScript + Vite + Chakra UI, no custom
+stylesheet, same launcher-like pages (home / instances / accounts / settings, floating launch button,
+toast). It is a starting point for a custom launcher UI, not the full command surface — extend it with
+the remaining kernel methods before packaging for distribution.
+
+```text
+my-frontend/
+├─ frontend/
+│  ├─ frontend.json
+│  ├─ index.html
+│  └─ src/{main.tsx, App.tsx, kernel.ts}
+├─ vite.config.ts          # base "./", outDir dist/frontend, copies frontend.json
+├─ scripts/pack.mjs
+└─ package.json
+```
+
 ## Functional parity
 
 A third-party frontend replaces the official UI, so it has to expose the official capabilities itself.
@@ -143,16 +176,27 @@ The rule for a distributable frontend is: **cover every method in `kernel_manife
 `mcugl.kernel/v1`). Missing entries silently remove features from the user's launcher, and there is no
 kernel-side fallback UI.
 
+The rule is enforced at pack time. `scripts/pack.mjs` reads the bundled `kernel-methods.json`, scans
+the text files in the frontend directory for each method name, and refuses to write a package when
+something is missing:
+
+```text
+[frontend:pack] 功能覆盖不足：7/66 个内核方法，缺少 59 个：
+  - get_overview
+  …
+补全后重试；如果只是打预览包，加 --allow-incomplete。
+```
+
 - `vite-react` is the baseline: its `actions.ts` catalog is the checklist, and the page shows
   `covered/total` plus any missing method.
-- `simple` and `vanilla` are layout starting points; extend them with the missing commands before
-  shipping.
+- `simple`, `vite-react-simple` and `vanilla` are layout starting points; they intentionally cover only
+  the pages they implement. Pack them with `--allow-incomplete` while you are prototyping; a
+  distribution build must be complete.
+- `--allow-incomplete` (or `MCUGL_PACK_ALLOW_INCOMPLETE=1`) writes a preview package with a warning —
+  never ship that to users.
 - The demo backend answers 28 write commands with `UNSUPPORTED`; show that error instead of hiding the
   action.
-- Before packing, diff your catalog against `kernel_manifest.methods`; the reference template makes that
-  diff visible at runtime.
-- This is a review/documentation rule, not a kernel-enforced one. Details in
-  `MCUGLauncher/docs/KERNEL_API_V1.md` §4.5 and `FRONTEND_PACKAGE.md` §6.1.
+- Details in `MCUGLauncher/docs/KERNEL_API_V1.md` §4.5 and `FRONTEND_PACKAGE.md` §6.1.
 
 ## Packaging and installing
 
@@ -190,6 +234,7 @@ file; the launcher unpacks it into `.dev/` inside its data directory.
 npm test
 ```
 
-The suite generates all three template projects, packs the `vanilla` and `simple` ones, and checks the
-zip header and artifact name. It also drives the key state machines, the three prompts, the full wizard
-through a fake terminal, and the i18n catalogs (23 cases).
+The suite generates every stack/layout combination, packs the `vanilla` and `simple` ones (with
+`--allow-incomplete`), checks the parity gate, and verifies the zip header and artifact name. It also
+drives the key state machines, the three prompts, the full wizard through a fake terminal, and the i18n
+catalogs (24 cases).

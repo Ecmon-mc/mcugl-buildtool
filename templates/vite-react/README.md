@@ -64,7 +64,9 @@ frontend, clear `MCUGL_FRONTEND` and restart.
 
 A distributable frontend is expected to cover **every method in `kernel_manifest.methods`**; dropping
 one silently removes a user-facing feature. The catalog in `src/actions.ts` is the baseline, and the
-page shows `covered/total` plus any missing method name. Two facts to keep in mind:
+page shows `covered/total` plus any missing method name. `npm run pack` enforces this: it scans the
+frontend directory, compares it with `scripts/kernel-methods.json`, and refuses to write a package when
+a method is missing (`--allow-incomplete` builds a preview package instead). Two facts to keep in mind:
 
 - The demo backend answers 28 write commands with `UNSUPPORTED`. That is a backend capability limit,
   not a frontend bug: display the error code and say so, do not hide the entry.

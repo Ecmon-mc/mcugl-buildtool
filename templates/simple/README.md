@@ -43,6 +43,10 @@ data-driven action console, see the `vite-react` template in the same
 repository. A distributable frontend is expected to reach functional parity —
 see `MCUGLAUNCHER/docs/FRONTEND_PACKAGE.md` §6.1.
 
+`npm run pack` therefore refuses to build until every method is referenced. While
+you are still prototyping the layout, use `npm run pack -- --allow-incomplete`
+for a preview package.
+
 ## API
 
 - Contract: `MCUGLAUNCHER/docs/KERNEL_API_V1.md`

@@ -30,6 +30,13 @@ A third-party frontend for MCUGL Launcher (vanilla template, no build step).
 npm run pack     # or npm run build — vanilla has no compile step, so both are equivalent
 ```
 
+A distribution package must reference all 66 kernel methods, so this demo layout is rejected by the
+parity gate until you add them. For a preview package use:
+
+```powershell
+npm run pack -- --allow-incomplete
+```
+
 The artifact is `dist-frontends/{{identifier}}-{{version}}.mcuglf`. In the launcher, open
 **Settings → Developer options → Frontend (third-party UI) → Import package…**, choose **Use**, then
 restart.

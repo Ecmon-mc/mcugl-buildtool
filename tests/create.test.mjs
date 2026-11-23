@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import {
   closeSync,
+  existsSync,
   mkdtempSync,
   mkdirSync,
   openSync,
@@ -86,7 +87,10 @@ test("vanilla 模板生成完整工程并能打包", () => {
   assert.equal(packageJson.scripts.build, "node scripts/pack.mjs frontend");
   assert.equal(packageJson.scripts.pack, "node scripts/pack.mjs frontend");
 
-  const pack = runNode([join(target, "scripts", "pack.mjs"), "frontend"], { cwd: target });
+  const pack = runNode(
+    [join(target, "scripts", "pack.mjs"), "frontend", "--allow-incomplete"],
+    { cwd: target },
+  );
   assert.equal(pack.status, 0, pack.stderr);
   assert.match(pack.stdout, /com\.example\.demo-0\.2\.0\.mcuglf/);
 
@@ -126,8 +130,16 @@ test("simple 模板生成仿启动器布局并且可直接打包", () => {
   const packageJson = JSON.parse(readFileSync(join(target, "package.json"), "utf8"));
   assert.equal(packageJson.scripts.build, "node scripts/pack.mjs frontend");
 
-  const pack = runNode([join(target, "scripts", "pack.mjs"), "frontend"], { cwd: target });
+  const strict = runNode([join(target, "scripts", "pack.mjs"), "frontend"], { cwd: target });
+  assert.equal(strict.status, 1, "覆盖不足时必须拒绝打包");
+  assert.match(strict.stderr, /功能覆盖不足/);
+
+  const pack = runNode(
+    [join(target, "scripts", "pack.mjs"), "frontend", "--allow-incomplete"],
+    { cwd: target },
+  );
   assert.equal(pack.status, 0, pack.stderr);
+  assert.match(pack.stderr, /预览包/);
   const archive = readFileSync(
     join(target, "dist-frontends", "com.example.simple-0.1.0.mcuglf"),
   );
@@ -255,6 +267,43 @@ test("identifier 校验与 Rust 安装器保持一致", () => {
   assert.match(validateIdentifier("com.con", "zh"), /保留名/);
   assert.match(validateIdentifier("com.lpt9", "zh"), /保留名/);
   assert.match(validateVersion("1.0", "zh"), /语义化版本/);
+});
+
+test("--layout simple 生成 vite-react-simple 工程", () => {
+  const target = tempProject();
+  const result = runCli([
+    target,
+    "--yes",
+    "--template",
+    "vite-react",
+    "--layout",
+    "simple",
+    "--identifier",
+    "com.example.simple-react",
+    "--name",
+    "Simple React",
+  ]);
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /vite-react-simple/);
+
+  const src = join(target, "frontend", "src");
+  for (const name of ["App.tsx", "main.tsx", "kernel.ts"]) {
+    assert.ok(readdirSync(src).includes(name), `缺少 ${name}`);
+  }
+  const app = readFileSync(join(src, "App.tsx"), "utf8");
+  assert.match(app, /首页/);
+  assert.match(app, /launchGame/);
+  const kernel = readFileSync(join(src, "kernel.ts"), "utf8");
+  assert.match(kernel, /"launch_game"/);
+  assert.match(kernel, /"select_instance"/);
+
+  const packageJson = JSON.parse(readFileSync(join(target, "package.json"), "utf8"));
+  assert.equal(packageJson.scripts.pack, "node scripts/pack.mjs dist/frontend");
+  assert.ok(existsSync(join(target, "scripts", "kernel-methods.json")));
+
+  const badLayout = runCli([tempProject(), "--yes", "--layout", "nope"]);
+  assert.equal(badLayout.status, 1);
+  assert.match(badLayout.stderr, /Unknown layout/);
 });
 
 test("vite-react 模板覆盖全部内核方法与宿主命令", () => {

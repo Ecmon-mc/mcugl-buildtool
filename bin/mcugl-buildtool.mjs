@@ -13,7 +13,7 @@ import { parseArgs } from "../lib/args.mjs";
 import { detectLocale, normalizeLocale, setLocale, t } from "../lib/i18n.mjs";
 import { askSelect, askText, closePrompts } from "../lib/prompts.mjs";
 import { validateIdentifier, validateVersion } from "../lib/manifest.mjs";
-import { scaffold, slugify, TEMPLATES } from "../lib/scaffold.mjs";
+import { scaffold, slugify, TEMPLATES, BASE_TEMPLATES, LAYOUTS, resolveTemplate } from "../lib/scaffold.mjs";
 import { CancelledError, interactive, printDone } from "../lib/ui.mjs";
 import { runWizard } from "../lib/wizard.mjs";
 
@@ -30,6 +30,11 @@ function printNextSteps(target, template) {
     console.log(t("nextEnvDist"));
     console.log(t("nextRefresh"));
     console.log(t("nextBuildProd"));
+  } else if (template === "vite-react-simple") {
+    console.log(t("nextInstall"));
+    console.log(t("nextBuildProd"));
+    console.log(t("nextEnvDist"));
+    console.log(t("nextRefresh"));
   } else if (template === "simple") {
     console.log(t("nextEnvFrontend"));
     console.log(t("nextRefresh"));
@@ -62,12 +67,17 @@ async function main() {
     return;
   }
 
+  if (args.layout && !LAYOUTS.includes(args.layout)) {
+    throw new Error(t("errUnknownLayout", { name: args.layout, list: LAYOUTS.join(", ") }));
+  }
+
   // 无参数、非 --yes、真终端：进入交互式向导（与 create-sjmcl-extension 的体验一致）。
   if (!args.positional.length && !args.yes && interactive()) {
     try {
       const answers = await runWizard({
         defaults: {
           template: args.template,
+          layout: args.layout,
           identifier: args.identifier,
           name: args.name,
           description: args.description,
@@ -109,17 +119,29 @@ async function main() {
 
   let template = args.template;
   if (!template) {
-    template = args.yes
-      ? "vanilla"
-      : await askSelect({
-          message: t("qTemplate"),
-          options: [
-            { value: "vanilla", label: `${t("tplVanilla")} — ${t("tplVanillaDesc")}` },
-            { value: "simple", label: `${t("tplSimple")} — ${t("tplSimpleDesc")}` },
-            { value: "vite-react", label: `${t("tplVite")} — ${t("tplViteDesc")}` },
-          ],
-          fallback: 0,
-        });
+    if (args.yes) {
+      template = "vanilla";
+    } else {
+      const stack = await askSelect({
+        message: t("qStack"),
+        options: [
+          { value: "vanilla", label: `${t("baseVanilla")} — ${t("baseVanillaDesc")}` },
+          { value: "vite-react", label: `${t("baseVite")} — ${t("baseViteDesc")}` },
+        ],
+        fallback: 0,
+      });
+      const layout = await askSelect({
+        message: t("qLayout"),
+        options: [
+          { value: "dev", label: `${t("layoutDev")} — ${t("layoutDevDesc")}` },
+          { value: "simple", label: `${t("layoutSimple")} — ${t("layoutSimpleDesc")}` },
+        ],
+        fallback: 0,
+      });
+      template = resolveTemplate(stack, layout);
+    }
+  } else if (args.layout) {
+    template = resolveTemplate(template, args.layout) ?? template;
   }
   if (!TEMPLATES.includes(template)) {
     throw new Error(t("errUnknownTemplate", { name: template, list: TEMPLATES.join(", ") }));
