@@ -218,3 +218,19 @@ test("identifier 校验与 Rust 安装器保持一致", () => {
   assert.match(validateIdentifier("com.lpt9", "zh"), /保留名/);
   assert.match(validateVersion("1.0", "zh"), /语义化版本/);
 });
+
+test("vite-react 模板覆盖全部内核方法与宿主命令", () => {
+  const actions = readFileSync(
+    join(packageRoot, "templates", "vite-react", "frontend", "src", "actions.ts"),
+    "utf8",
+  );
+  const commands = [...actions.matchAll(/command: "([a-z_]+)"/g)].map((match) => match[1]);
+  assert.equal(new Set(commands).size, commands.length, "命令不应重复");
+  assert.equal(commands.length, 70);
+
+  const host = ["install_frontend", "list_frontends", "remove_frontend", "use_frontend"];
+  const kernel = commands.filter((command) => !host.includes(command));
+  // mcugl.kernel/v1 的 66 个方法；内核新增方法时同步更新 actions.ts 与这个数字。
+  assert.equal(kernel.length, 66);
+  assert.equal(host.length, 4);
+});

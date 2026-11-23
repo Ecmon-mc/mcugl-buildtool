@@ -87,14 +87,17 @@ $env:MCUGL_FRONTEND = "D:\path\to\my-frontend\frontend"
 
 ### `vite-react`
 
-React 19 + TypeScript + Vite; `npm run dev` rebuilds into `dist/frontend` on change:
+React 19 + TypeScript + Vite + Chakra UI. This template is also the **reference implementation** of
+the kernel API: `frontend/src/actions.ts` lists all 66 kernel methods and the 4 host management
+commands as clickable forms, so a fresh project can exercise the whole surface immediately. `npm run
+dev` rebuilds into `dist/frontend` on change:
 
 ```text
 my-frontend/
 ├─ frontend/               # Vite root (source)
 │  ├─ frontend.json
 │  ├─ index.html
-│  └─ src/{main.tsx, App.tsx, kernel.ts, styles.css}
+│  └─ src/{main.tsx, App.tsx, kernel.ts, actions.ts, ActionCard.tsx}
 ├─ vite.config.ts          # base "./", outDir ../dist/frontend, copies frontend.json
 ├─ scripts/pack.mjs
 └─ package.json
@@ -108,6 +111,22 @@ $env:MCUGL_FRONTEND = "D:\path\to\my-frontend\dist\frontend"
 
 > The launcher serves the frontend from disk through its `mcugl` protocol, not from the Vite dev
 > server, so there is no HMR. The development loop is "rebuild on change, then refresh the window".
+
+## Functional parity
+
+A third-party frontend replaces the official UI, so it has to expose the official capabilities itself.
+The rule for a distributable frontend is: **cover every method in `kernel_manifest.methods`** (66 in
+`mcugl.kernel/v1`). Missing entries silently remove features from the user's launcher, and there is no
+kernel-side fallback UI.
+
+- `vite-react` is the baseline: its `actions.ts` catalog is the checklist, and the page shows
+  `covered/total` plus any missing method.
+- The demo backend answers 28 write commands with `UNSUPPORTED`; show that error instead of hiding the
+  action.
+- Before packing, diff your catalog against `kernel_manifest.methods`; the reference template makes that
+  diff visible at runtime.
+- This is a review/documentation rule, not a kernel-enforced one. Details in
+  `MCUGLauncher/docs/KERNEL_API_V1.md` §4.5 and `FRONTEND_PACKAGE.md` §6.1.
 
 ## Packaging and installing
 
@@ -146,5 +165,5 @@ npm test
 ```
 
 The suite generates both template projects, packs the `vanilla` one, and checks the zip header and
-artifact name. It also drives the key state machines, the three prompts, and the full wizard through a
-fake terminal (16 cases).
+artifact name. It also drives the key state machines, the three prompts, the full wizard through a fake
+terminal, and the i18n catalogs (22 cases).
