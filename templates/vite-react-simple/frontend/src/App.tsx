@@ -3,15 +3,20 @@ import {
   Badge,
   Box,
   Button,
+  Code,
   Flex,
   HStack,
   Heading,
+  Input,
   SimpleGrid,
   Spinner,
   Text,
+  Textarea,
   VStack,
 } from "@chakra-ui/react";
 import {
+  ALL_METHODS,
+  call,
   describeError,
   launchGame,
   listAccounts,
@@ -28,12 +33,13 @@ import {
   type TaskInfo,
 } from "./kernel";
 
-type Page = "home" | "instances" | "accounts" | "settings";
+type Page = "home" | "instances" | "accounts" | "console" | "settings";
 
 const PAGES: { key: Page; label: string }[] = [
   { key: "home", label: "首页" },
   { key: "instances", label: "实例" },
   { key: "accounts", label: "账号" },
+  { key: "console", label: "命令" },
   { key: "settings", label: "设置" },
 ];
 
@@ -209,6 +215,8 @@ export default function App() {
               onSelect={chooseAccount}
             />
           ) : null}
+
+          {page === "console" ? <ConsolePage /> : null}
 
           {page === "settings" ? (
             <SettingsPage
@@ -408,6 +416,138 @@ function AccountsPage(props: {
   );
 }
 
+function ConsolePage() {
+  const [command, setCommand] = useState("get_overview");
+  const [args, setArgs] = useState("{}");
+  const [output, setOutput] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  async function run() {
+    setBusy(true);
+    setError(null);
+    try {
+      let parsed: Record<string, unknown> = {};
+      if (args.trim()) {
+        const value = JSON.parse(args) as unknown;
+        if (typeof value !== "object" || value === null || Array.isArray(value)) {
+          throw new SyntaxError("参数必须是一个 JSON 对象");
+        }
+        parsed = value as Record<string, unknown>;
+      }
+      const result = await call<unknown>(command.trim(), parsed);
+      setOutput(JSON.stringify(result, null, 2));
+    } catch (failure) {
+      setOutput(null);
+      if (failure instanceof SyntaxError) {
+        setError(`参数 JSON 无效：${failure.message}`);
+      } else {
+        const detail = describeError(failure);
+        setError(`${detail.code}：${detail.message}`);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <VStack align="stretch" gap={4}>
+      <Box>
+        <Heading size="xl">命令</Heading>
+        <Text mt={1} fontSize="sm" color="gray.600">
+          调用任意内核方法。参数是一个 JSON 对象，键名用 camelCase（例如 {"{"}"instanceId":"…"{"}"}）。
+        </Text>
+      </Box>
+
+      <Box bg="white" borderRadius="xl" borderWidth="1px" borderColor="gray.200" p={5}>
+        <VStack align="stretch" gap={3}>
+          <Box>
+            <Text fontSize="sm" fontWeight="semibold" mb={1}>
+              方法
+            </Text>
+            <Input
+              value={command}
+              onChange={(event) => setCommand(event.target.value)}
+              placeholder="get_overview"
+              fontFamily="mono"
+            />
+          </Box>
+          <Box>
+            <Text fontSize="sm" fontWeight="semibold" mb={1}>
+              参数（JSON）
+            </Text>
+            <Textarea
+              value={args}
+              onChange={(event) => setArgs(event.target.value)}
+              rows={5}
+              fontFamily="mono"
+              fontSize="sm"
+            />
+          </Box>
+          <HStack>
+            <Button bg="#228cff" color="white" loading={busy} onClick={() => void run()}>
+              执行
+            </Button>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setArgs("{}");
+                setOutput(null);
+                setError(null);
+              }}
+            >
+              清空结果
+            </Button>
+          </HStack>
+        </VStack>
+      </Box>
+
+      <Box
+        bg="white"
+        borderRadius="xl"
+        borderWidth="1px"
+        borderColor="gray.200"
+        p={5}
+        maxH="180px"
+        overflowY="auto"
+      >
+        <Text fontSize="sm" fontWeight="semibold" mb={2}>
+          全部方法（{ALL_METHODS.length}）
+        </Text>
+        <Flex wrap="wrap" gap={2}>
+          {ALL_METHODS.map((method) => (
+            <Button
+              key={method}
+              size="xs"
+              variant="subtle"
+              fontFamily="mono"
+              onClick={() => setCommand(method)}
+            >
+              {method}
+            </Button>
+          ))}
+        </Flex>
+      </Box>
+
+      {error ? (
+        <Box bg="red.50" borderRadius="xl" borderWidth="1px" borderColor="red.200" p={4}>
+          <Text fontSize="sm" color="red.700">
+            {error}
+          </Text>
+        </Box>
+      ) : null}
+
+      {output ? (
+        <Box bg="gray.900" borderRadius="xl" p={4} overflowX="auto">
+          <Code display="block" whiteSpace="pre" bg="transparent" color="gray.100" fontSize="sm">
+            {output}
+          </Code>
+        </Box>
+      ) : null}
+    </VStack>
+  );
+}
+
 function SettingsPage(props: {
   manifestInfo: KernelManifest | null;
   revision: number;
@@ -443,8 +583,9 @@ function SettingsPage(props: {
         </Button>
       </Box>
       <Text fontSize="xs" color="gray.500">
-        这是 vite-react + simple 布局的起点模板，只接了首页需要的最小命令集。
-        完整命令覆盖与逐条调用请参考 vite-react（dev）模板。
+        这是 vite-react + simple 布局的起点模板：常规操作走首页/实例/账号页，
+        「命令」页可以直接调用 mcugl.kernel/v1 的全部 {ALL_METHODS.length} 个方法，
+        因此打包器的功能覆盖检查可以直接通过。
       </Text>
     </VStack>
   );

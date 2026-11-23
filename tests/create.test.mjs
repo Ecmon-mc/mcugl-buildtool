@@ -306,6 +306,30 @@ test("--layout simple 生成 vite-react-simple 工程", () => {
   assert.match(badLayout.stderr, /Unknown layout/);
 });
 
+test("vite-react-simple 的命令页覆盖全部 66 个内核方法", () => {
+  const kernel = readFileSync(
+    join(packageRoot, "templates", "vite-react-simple", "frontend", "src", "kernel.ts"),
+    "utf8",
+  );
+  const start = kernel.indexOf("export const ALL_METHODS = [");
+  assert.ok(start >= 0, "应导出 ALL_METHODS");
+  const end = kernel.indexOf("] as const;", start);
+  assert.ok(end > start, "ALL_METHODS 应以 as const 结束");
+  const methods = [...kernel.slice(start, end).matchAll(/"([a-z_]+)"/g)].map((match) => match[1]);
+
+  const canonical = JSON.parse(
+    readFileSync(join(packageRoot, "shared", "kernel-methods.json"), "utf8"),
+  ).methods;
+  assert.deepEqual(methods, canonical, "ALL_METHODS 必须与 kernel-methods.json 一致");
+
+  const app = readFileSync(
+    join(packageRoot, "templates", "vite-react-simple", "frontend", "src", "App.tsx"),
+    "utf8",
+  );
+  assert.match(app, /ALL_METHODS\.map/, "命令页应把全部方法渲染成快捷按钮");
+  assert.match(app, /label: "命令"/);
+});
+
 test("vite-react 模板覆盖全部内核方法与宿主命令", () => {
   const actions = readFileSync(
     join(packageRoot, "templates", "vite-react", "frontend", "src", "actions.ts"),

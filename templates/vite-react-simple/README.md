@@ -1,16 +1,16 @@
 # {{name}}
 
 A launcher-like MCUGL frontend built with Vite + React + TypeScript. It is the
-`vite-react` stack with the **simple** layout: home, instances, accounts and
-settings pages instead of a raw command console.
+`vite-react` stack with the **simple** layout: home, instances, accounts,
+settings and a **commands** page.
 
-This is a starting point, not a complete frontend. It wires the handful of
-commands the pages need (`get_overview`, `list_instances`, `list_accounts`,
-`list_tasks`, `select_instance`, `select_account`, `launch_game`,
-`kernel_manifest`). Add the remaining kernel methods before publishing a
-distribution package — `scripts/pack.mjs` refuses to build a package that does
-not cover every method listed in `scripts/kernel-methods.json`. Use
-`--allow-incomplete` only for local previews.
+The pages wire the commands a launcher UI usually needs (`get_overview`,
+`list_instances`, `list_accounts`, `list_tasks`, `select_instance`,
+`select_account`, `launch_game`, `kernel_manifest`). The commands page is the
+escape hatch: pick any of the 66 methods from `mcugl.kernel/v1`, edit its JSON
+arguments, and run it. Because every method is reachable, `npm run pack` passes
+the coverage gate without `--allow-incomplete`; use the commands page as the
+starting point when you promote one of those calls into a first-class screen.
 
 ## Development
 
@@ -32,7 +32,7 @@ folder is a complete frontend directory.
 ## Using it from the launcher
 
 1. `npm run build`
-2. `npm run pack` (add `--allow-incomplete` here while the UI is still partial)
+2. `npm run pack` (no flag needed — all 66 methods are covered)
 3. Import the `.mcuglf` in the launcher under Settings → Developer options →
    Frontend, then restart.
 

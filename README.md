@@ -155,8 +155,10 @@ $env:MCUGL_FRONTEND = "D:\path\to\my-frontend\dist\frontend"
 
 The `simple` layout on the `vite-react` stack: React 19 + TypeScript + Vite + Chakra UI, no custom
 stylesheet, same launcher-like pages (home / instances / accounts / settings, floating launch button,
-toast). It is a starting point for a custom launcher UI, not the full command surface — extend it with
-the remaining kernel methods before packaging for distribution.
+toast) plus a **commands** page. That page lists all 66 kernel methods as quick-fill buttons and runs
+any of them with a JSON argument object, so the template covers the full surface and passes
+`npm run pack` without `--allow-incomplete`. Promote a command from that page into a first-class
+screen as your UI grows.
 
 ```text
 my-frontend/
@@ -189,9 +191,14 @@ something is missing:
 
 - `vite-react` is the baseline: its `actions.ts` catalog is the checklist, and the page shows
   `covered/total` plus any missing method.
-- `simple`, `vite-react-simple` and `vanilla` are layout starting points; they intentionally cover only
-  the pages they implement. Pack them with `--allow-incomplete` while you are prototyping; a
-  distribution build must be complete.
+- `vite-react-simple` reaches the same 66/66 through its commands page (quick-fill chips + JSON
+  arguments), so it packs without `--allow-incomplete`.
+- `simple` and `vanilla` are layout starting points; they intentionally cover only the pages they
+  implement. Pack them with `--allow-incomplete` while you are prototyping; a distribution build must
+  be complete.
+- The scan is a static heuristic: it looks for method names as standalone tokens (quoted, backticked or
+  dot-joined by the minifier) in the packaged text files. It cannot prove the call is wired correctly —
+  the runtime check in `vite-react` (missing methods shown in red) remains the source of truth.
 - `--allow-incomplete` (or `MCUGL_PACK_ALLOW_INCOMPLETE=1`) writes a preview package with a warning —
   never ship that to users.
 - The demo backend answers 28 write commands with `UNSUPPORTED`; show that error instead of hiding the
@@ -235,6 +242,6 @@ npm test
 ```
 
 The suite generates every stack/layout combination, packs the `vanilla` and `simple` ones (with
-`--allow-incomplete`), checks the parity gate, and verifies the zip header and artifact name. It also
-drives the key state machines, the three prompts, the full wizard through a fake terminal, and the i18n
-catalogs (24 cases).
+`--allow-incomplete`), checks the parity gate (including that `vite-react-simple` covers all 66 methods),
+and verifies the zip header and artifact name. It also drives the key state machines, the three
+prompts, the full wizard through a fake terminal, and the i18n catalogs (25 cases).

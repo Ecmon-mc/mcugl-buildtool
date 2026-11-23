@@ -96,9 +96,16 @@ function loadKernelMethods() {
   }
 }
 
+function methodPattern(method) {
+  const escaped = method.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // 只要求方法名两侧不是标识符字符。压缩器既可能保留引号，
+  // 也可能把字符串数组折叠成 `get_overview.get_settings.…` 这样的拼接串。
+  return new RegExp(`(^|[^A-Za-z0-9_$])${escaped}($|[^A-Za-z0-9_$])`);
+}
+
 function scanCoverage(files, methods) {
   const covered = new Set();
-  const wanted = new Set(methods);
+  const patterns = methods.map((method) => [method, methodPattern(method)]);
   for (const { file } of files) {
     const extension = file.slice(file.lastIndexOf(".")).toLowerCase();
     if (!TEXT_EXTENSIONS.has(extension)) continue;
@@ -109,16 +116,9 @@ function scanCoverage(files, methods) {
       continue;
     }
     if (!text.includes("_")) continue;
-    for (const method of wanted) {
+    for (const [method, pattern] of patterns) {
       if (covered.has(method)) continue;
-      // 压缩器会把引号统一成反引号（例如 Fl(`get_overview`)），三种都要认。
-      if (
-        text.includes(`"${method}"`) ||
-        text.includes(`'${method}'`) ||
-        text.includes(`\`${method}\``)
-      ) {
-        covered.add(method);
-      }
+      if (pattern.test(text)) covered.add(method);
     }
   }
   return methods.filter((method) => !covered.has(method));
