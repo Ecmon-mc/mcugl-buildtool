@@ -132,14 +132,22 @@ test("simple 模板生成仿启动器布局并且可直接打包", () => {
 
   const strict = runNode([join(target, "scripts", "pack.mjs"), "frontend"], { cwd: target });
   assert.equal(strict.status, 1, "覆盖不足时必须拒绝打包");
-  assert.match(strict.stderr, /功能覆盖不足/);
+  assert.match(strict.stderr, /Insufficient method coverage/);
 
   const pack = runNode(
     [join(target, "scripts", "pack.mjs"), "frontend", "--allow-incomplete"],
     { cwd: target },
   );
   assert.equal(pack.status, 0, pack.stderr);
-  assert.match(pack.stderr, /预览包/);
+  assert.match(pack.stderr, /preview package/);
+
+  // 生成时选中文，打包脚本也应说中文（也可用 MCUGL_PACK_LANG 覆盖）。
+  const packZh = runNode(
+    [join(target, "scripts", "pack.mjs"), "frontend", "--allow-incomplete", "--out", join(target, "zh.mcuglf")],
+    { cwd: target, env: { ...process.env, MCUGL_PACK_LANG: "zh", LANG: "zh_CN.UTF-8", LC_ALL: "zh_CN.UTF-8" } },
+  );
+  assert.equal(packZh.status, 0, packZh.stderr);
+  assert.match(packZh.stderr, /预览包/);
   const archive = readFileSync(
     join(target, "dist-frontends", "com.example.simple-0.1.0.mcuglf"),
   );
@@ -208,6 +216,22 @@ test("模板名与版本等参数会被校验", () => {
   ]);
   assert.notEqual(badVersion.status, 0);
   assert.match(badVersion.stderr, /version/);
+});
+
+test("打包脚本的日志语言跟随脚手架语言", () => {
+  const english = tempProject();
+  assert.equal(runCli([english, "--yes", "--template", "vanilla"]).status, 0);
+  assert.match(
+    readFileSync(join(english, "scripts", "pack.mjs"), "utf8"),
+    /const SCAFFOLD_LANG = "en";/,
+  );
+
+  const chinese = tempProject();
+  const zh = runCli([chinese, "--yes", "--template", "vanilla", "--lang", "zh"]);
+  assert.equal(zh.status, 0, zh.stderr);
+  const packSource = readFileSync(join(chinese, "scripts", "pack.mjs"), "utf8");
+  assert.match(packSource, /const SCAFFOLD_LANG = "zh";/);
+  assert.match(packSource, /功能覆盖不足/);
 });
 
 test("名称里的引号与尖括号会按文件类型转义", () => {

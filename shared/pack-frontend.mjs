@@ -8,12 +8,122 @@
 //
 // 不依赖任何 npm 包：Node 自带 zlib 做 deflate，CRC32 在这里实现。
 // 包内约定见 MCUGL 的 docs/FRONTEND_PACKAGE.md：根目录必须有 frontend.json。
+//
+// 构建信息默认英文；脚手架生成时会把下面的 SCAFFOLD_LANG 换成生成时选择的语言，
+// 因此中文向导生成的工程会打印中文日志。需要临时覆盖时设 MCUGL_PACK_LANG=en|zh。
 
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { deflateRawSync } from "node:zlib";
+
+const SCAFFOLD_LANG = "__MCUGL_LANG__";
+
+const MESSAGES = {
+  en: {
+    help: `Usage: node scripts/pack.mjs <frontend-directory> [--out <file.mcuglf>] [--allow-incomplete]
+
+The directory root must contain frontend.json:
+  {
+    "identifier": "com.example.my-frontend",
+    "name": "My Frontend",
+    "version": "1.0.0",
+    "kernelApi": "^1.0.0",
+    "entry": "index.html"
+  }
+
+Output defaults to dist-frontends/<identifier>-<version>.mcuglf.
+
+Parity check: a distributable frontend must cover all 66 kernel methods in
+kernel-methods.json (host management commands excluded). Packing fails when
+methods are missing; --allow-incomplete is only for preview builds.`,
+    errOutPath: "--out needs an output path",
+    errNeedDir: "Expected exactly one frontend directory.",
+    errSymlink: "Symbolic links are not allowed: {path}",
+    errIllegalPath: "Illegal path: {name}",
+    errFileTooLarge: "File too large: {name}",
+    errTotalTooLarge: "The frontend directory exceeds 256 MiB in total",
+    errReadManifest: "Failed to read {path}: {error}",
+    errManifestField:
+      "frontend.json is missing the string field {key} (identifier is required when packing)",
+    errIdentifier:
+      "identifier must be 3–128 letters, digits and . - _, and must not start with a dot: {value}",
+    errVersion: "version must be semver (e.g. 1.0.0): {value}",
+    errEntry: "entry must be a relative path inside the package: {value}",
+    errEntryMissing: "Entry file not found: {entry}",
+    errEmptyDir: "The frontend directory is empty",
+    errTooManyFiles: "More than {max} files",
+    errNoManifest: "frontend.json is missing from the package",
+    coverageHeader:
+      "Insufficient method coverage: {covered}/{total} kernel methods, missing {missing}:",
+    coverageHint:
+      "A distributable frontend must cover every method in kernel-methods.json (host management commands excluded).\nComplete the missing methods and retry; for a preview package add --allow-incomplete.",
+    coveragePreview:
+      "Coverage {covered}/{total}, missing {missing} (preview package, --allow-incomplete)",
+    coverageLine: "  Coverage: {covered}/{total} kernel methods",
+    coverageSkipped: "scripts/kernel-methods.json not found; skipping the coverage check",
+    outFrontend: "  Frontend: {name} {version} ({identifier})",
+    outFiles: "  Files: {count}, {size} KiB raw",
+    outArtifact: "  Package: {path} ({size} KiB)",
+    outSha: "  sha256: {hash}",
+  },
+  zh: {
+    help: `用法：node scripts/pack.mjs <前端目录> [--out <文件.mcuglf>] [--allow-incomplete]
+
+目录根部必须包含 frontend.json：
+  {
+    "identifier": "com.example.my-frontend",
+    "name": "我的前端",
+    "version": "1.0.0",
+    "kernelApi": "^1.0.0",
+    "entry": "index.html"
+  }
+
+输出默认写到 dist-frontends/<identifier>-<version>.mcuglf。
+
+功能对等检查：分发级前端必须覆盖 kernel-methods.json 里的全部 66 个内核方法
+（前端管理命令除外）。缺少方法时打包会失败；--allow-incomplete 仅用于预览版。`,
+    errOutPath: "--out 后面需要一个输出路径",
+    errNeedDir: "需要一个前端目录。",
+    errSymlink: "不允许符号链接：{path}",
+    errIllegalPath: "非法路径：{name}",
+    errFileTooLarge: "文件过大：{name}",
+    errTotalTooLarge: "前端目录总大小超过 256 MiB",
+    errReadManifest: "读取 {path} 失败：{error}",
+    errManifestField: "frontend.json 缺少字符串字段 {key}（打包时必须提供 identifier）",
+    errIdentifier: "identifier 需要是 3–128 个字母数字与 . - _，且不能以点开头：{value}",
+    errVersion: "version 必须是 semver（如 1.0.0）：{value}",
+    errEntry: "entry 必须是包内相对路径：{value}",
+    errEntryMissing: "入口文件不存在：{entry}",
+    errEmptyDir: "目录是空的",
+    errTooManyFiles: "文件数超过 {max}",
+    errNoManifest: "打包后缺少 frontend.json",
+    coverageHeader: "功能覆盖不足：{covered}/{total} 个内核方法，缺少 {missing} 个：",
+    coverageHint:
+      "分发级前端必须覆盖 kernel-methods.json 里的全部方法（前端管理命令除外）。\n补全后重试；如果只是打预览包，加 --allow-incomplete。",
+    coveragePreview: "覆盖 {covered}/{total}，缺 {missing} 个（预览包，--allow-incomplete）",
+    coverageLine: "  覆盖：{covered}/{total} 个内核方法",
+    coverageSkipped: "未找到 scripts/kernel-methods.json，跳过功能覆盖检查",
+    outFrontend: "  前端：{name} {version}（{identifier}）",
+    outFiles: "  文件：{count} 个，原始 {size} KiB",
+    outArtifact: "  产物：{path}（{size} KiB）",
+    outSha: "  sha256：{hash}",
+  },
+};
+
+// 语言优先级：显式 MCUGL_PACK_LANG > 脚手架生成时写入的语言 > LANG/LC_ALL 里的 zh > 英文。
+const LANG = (() => {
+  const explicit = process.env.MCUGL_PACK_LANG;
+  if (explicit === "zh" || explicit === "en") return explicit;
+  if (SCAFFOLD_LANG === "zh" || SCAFFOLD_LANG === "en") return SCAFFOLD_LANG;
+  return /^zh/i.test(process.env.LC_ALL || process.env.LANG || "") ? "zh" : "en";
+})();
+
+function t(key, vars = {}) {
+  const template = MESSAGES[LANG][key] ?? MESSAGES.en[key];
+  return template.replace(/\{(\w+)\}/g, (_, name) => String(vars[name] ?? ""));
+}
 
 const SKIP_DIRS = new Set([".git", "node_modules", "dist-frontends", ".staging"]);
 const MAX_ENTRY_BYTES = 128 * 1024 * 1024;
@@ -41,21 +151,7 @@ function fail(message) {
 }
 
 function printHelp() {
-  console.log(`用法：node scripts/pack.mjs <前端目录> [--out <文件.mcuglf>] [--allow-incomplete]
-
-目录根部必须包含 frontend.json：
-  {
-    "identifier": "com.example.my-frontend",
-    "name": "我的前端",
-    "version": "1.0.0",
-    "kernelApi": "^1.0.0",
-    "entry": "index.html"
-  }
-
-输出默认写到 dist-frontends/<identifier>-<version>.mcuglf。
-
-功能对等检查：分发级前端必须覆盖 kernel-methods.json 里的全部 66 个内核方法
-（前端管理命令除外）。缺少方法时打包会失败；--allow-incomplete 仅用于预览版。`);
+  console.log(t("help"));
 }
 
 function parseArgs(argv) {
@@ -66,7 +162,7 @@ function parseArgs(argv) {
     const arg = argv[index];
     if (arg === "--out" || arg === "-o") {
       output = argv[++index];
-      if (!output) fail("--out 后面需要一个输出路径");
+      if (!output) fail(t("errOutPath"));
     } else if (arg === "--allow-incomplete") {
       allowIncomplete = true;
     } else if (arg === "--help" || arg === "-h") {
@@ -78,7 +174,7 @@ function parseArgs(argv) {
   }
   if (positional.length !== 1) {
     printHelp();
-    fail("需要一个前端目录。");
+    fail(t("errNeedDir"));
   }
   return { dir: positional[0], output, allowIncomplete };
 }
@@ -156,14 +252,16 @@ function walk(directory, root, files) {
   // 排序让产物可复现，便于比较两次打包的 sha256。
   entries.sort((left, right) => left.name.localeCompare(right.name));
   for (const entry of entries) {
-    if (entry.isSymbolicLink()) fail(`不允许符号链接：${join(relative(root, directory), entry.name)}`);
+    if (entry.isSymbolicLink()) {
+      fail(t("errSymlink", { path: join(relative(root, directory), entry.name) }));
+    }
     const full = join(directory, entry.name);
     if (entry.isDirectory()) {
       if (SKIP_DIRS.has(entry.name)) continue;
       walk(full, root, files);
     } else if (entry.isFile()) {
       const name = relative(root, full).split(sep).join("/");
-      if (name.includes("..")) fail(`非法路径：${name}`);
+      if (name.includes("..")) fail(t("errIllegalPath", { name }));
       files.push({ name, file: full });
     }
   }
@@ -177,9 +275,9 @@ function buildZip(files) {
 
   for (const { name, file } of files) {
     const data = readFileSync(file);
-    if (data.length > MAX_ENTRY_BYTES) fail(`文件过大：${name}`);
+    if (data.length > MAX_ENTRY_BYTES) fail(t("errFileTooLarge", { name }));
     total += data.length;
-    if (total > MAX_TOTAL_BYTES) fail("前端目录总大小超过 256 MiB");
+    if (total > MAX_TOTAL_BYTES) fail(t("errTotalTooLarge"));
 
     const nameBytes = Buffer.from(name, "utf8");
     const crc = crc32(data);
@@ -248,64 +346,64 @@ let manifest;
 try {
   manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
 } catch (error) {
-  fail(`读取 ${manifestPath} 失败：${error.message}`);
+  fail(t("errReadManifest", { path: manifestPath, error: error.message }));
 }
 
 for (const key of ["identifier", "name", "version", "kernelApi"]) {
   if (typeof manifest[key] !== "string" || manifest[key].trim() === "") {
-    fail(`frontend.json 缺少字符串字段 ${key}（打包时必须提供 identifier）`);
+    fail(t("errManifestField", { key }));
   }
 }
 if (!/^[A-Za-z0-9_-][A-Za-z0-9._-]{2,127}$/.test(manifest.identifier)) {
-  fail(`identifier 需要是 3–128 个字母数字与 . - _，且不能以点开头：${manifest.identifier}`);
+  fail(t("errIdentifier", { value: manifest.identifier }));
 }
 if (!/^\d+\.\d+\.\d+/.test(manifest.version)) {
-  fail(`version 必须是 semver（如 1.0.0）：${manifest.version}`);
+  fail(t("errVersion", { value: manifest.version }));
 }
 const entry = manifest.entry ?? "index.html";
 if (entry.startsWith("/") || entry.includes("..") || entry.includes("\\")) {
-  fail(`entry 必须是包内相对路径：${entry}`);
+  fail(t("errEntry", { value: entry }));
 }
 try {
-  if (!statSync(join(root, entry)).isFile()) fail(`入口文件不存在：${entry}`);
+  if (!statSync(join(root, entry)).isFile()) fail(t("errEntryMissing", { entry }));
 } catch {
-  fail(`入口文件不存在：${entry}`);
+  fail(t("errEntryMissing", { entry }));
 }
 
 const files = [];
 walk(root, root, files);
-if (files.length === 0) fail("目录是空的");
-if (files.length > MAX_ENTRIES) fail(`文件数超过 ${MAX_ENTRIES}`);
-if (!files.some((file) => file.name === "frontend.json")) fail("打包后缺少 frontend.json");
+if (files.length === 0) fail(t("errEmptyDir"));
+if (files.length > MAX_ENTRIES) fail(t("errTooManyFiles", { max: MAX_ENTRIES }));
+if (!files.some((file) => file.name === "frontend.json")) fail(t("errNoManifest"));
 
 // 功能对等检查：第三方前端是整页替换，缺命令就等于删功能，所以在打包期拦一次。
 const kernelMethods = loadKernelMethods();
-const allowPreview =
-  allowIncomplete || process.env.MCUGL_PACK_ALLOW_INCOMPLETE === "1";
+const allowPreview = allowIncomplete || process.env.MCUGL_PACK_ALLOW_INCOMPLETE === "1";
 let coverageLine = null;
 if (kernelMethods) {
   const missing = scanCoverage(files, kernelMethods);
   const covered = kernelMethods.length - missing.length;
   if (missing.length > 0) {
     if (!allowPreview) {
-      console.error(
-        `[frontend:pack] 功能覆盖不足：${covered}/${kernelMethods.length} 个内核方法，缺少 ${missing.length} 个：`,
-      );
+      console.error(t("coverageHeader", {
+        covered,
+        total: kernelMethods.length,
+        missing: missing.length,
+      }));
       for (const name of missing) console.error(`  - ${name}`);
-      console.error(
-        "分发级前端必须覆盖 kernel-methods.json 里的全部方法（前端管理命令除外）。\n" +
-          "补全后重试；如果只是打预览包，加 --allow-incomplete。",
-      );
+      console.error(t("coverageHint"));
       process.exit(1);
     }
-    console.warn(
-      `[frontend:pack] 覆盖 ${covered}/${kernelMethods.length}，缺 ${missing.length} 个（预览包，--allow-incomplete）`,
-    );
+    console.warn(t("coveragePreview", {
+      covered,
+      total: kernelMethods.length,
+      missing: missing.length,
+    }));
   } else {
-    coverageLine = `  覆盖：${covered}/${kernelMethods.length} 个内核方法`;
+    coverageLine = t("coverageLine", { covered, total: kernelMethods.length });
   }
 } else {
-  console.warn("[frontend:pack] 未找到 scripts/kernel-methods.json，跳过功能覆盖检查");
+  console.warn(t("coverageSkipped"));
 }
 
 const zip = buildZip(files);
@@ -317,11 +415,16 @@ writeFileSync(target, zip);
 
 const sha256 = createHash("sha256").update(zip).digest("hex");
 const kb = (zip.length / 1024).toFixed(1);
+const rawKb = (
+  files.reduce((sum, file) => sum + statSync(file.file).size, 0) / 1024
+).toFixed(1);
 console.log(`[frontend:pack] ${basename(target)}`);
-console.log(`  前端：${manifest.name} ${manifest.version}（${manifest.identifier}）`);
-console.log(
-  `  文件：${files.length} 个，原始 ${(files.reduce((sum, file) => sum + statSync(file.file).size, 0) / 1024).toFixed(1)} KiB`,
-);
-console.log(`  产物：${target}（${kb} KiB）`);
-console.log(`  sha256：${sha256}`);
+console.log(t("outFrontend", {
+  name: manifest.name,
+  version: manifest.version,
+  identifier: manifest.identifier,
+}));
+console.log(t("outFiles", { count: files.length, size: rawKb }));
+console.log(t("outArtifact", { path: target, size: kb }));
+console.log(t("outSha", { hash: sha256 }));
 if (coverageLine) console.log(coverageLine);

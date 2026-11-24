@@ -1,5 +1,7 @@
 # mcugl-buildtool
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 Scaffold, run and package **third-party frontends for MCUGL Launcher**.
 
 A generated project is plain static files — no Rust rebuild, no launcher fork. During development,
@@ -38,6 +40,10 @@ flags/readline, which keeps scripted usage stable.
 The interface is **English by default**. The wizard's first question switches it, and scripts can pass
 `--lang zh` (or set `MCUGL_LANG=zh`). Without an explicit setting, the tool only uses Chinese when the
 system locale (`LANG`/`LC_ALL`) clearly asks for it.
+
+The chosen language is also written into the generated `scripts/pack.mjs`: a project scaffolded in
+English prints English build logs and errors, one scaffolded in Chinese prints Chinese. Set
+`MCUGL_PACK_LANG=en|zh` to override it for a single run.
 
 ## Usage
 
@@ -183,11 +189,13 @@ the text files in the frontend directory for each method name, and refuses to wr
 something is missing:
 
 ```text
-[frontend:pack] 功能覆盖不足：7/66 个内核方法，缺少 59 个：
+[frontend:pack] Insufficient method coverage: 7/66 kernel methods, missing 59:
   - get_overview
   …
-补全后重试；如果只是打预览包，加 --allow-incomplete。
+Complete the missing methods and retry; for a preview package add --allow-incomplete.
 ```
+
+Projects scaffolded with `--lang zh` print the same message in Chinese.
 
 - `vite-react` is the baseline: its `actions.ts` catalog is the checklist, and the page shows
   `covered/total` plus any missing method.
@@ -220,7 +228,10 @@ file; the launcher unpacks it into `.dev/` inside its data directory.
 
 - `frontend.json`: `identifier` (3–128 ASCII letters, digits and `. - _`; reverse-DNS; avoid Windows
   reserved names), `name`, `version` (semver), `kernelApi` (default `^1.0.0`), `entry` (default
-  `index.html`).
+  `index.html`), and optional presentation fields (`author`, `description`, `homepage`, `icon`).
+- An optional `icon.png` next to `frontend.json` (or a custom path in `icon`, ≤ 512 KiB, png / jpg /
+  webp / gif / svg) is shown in the launcher's installed-frontend list. Without it the launcher falls
+  back to a built-in placeholder icon.
 - Pages run at `http://mcugl.localhost/` on Windows and `mcugl://localhost/` elsewhere. That is a
   local origin, so `invoke` works without a Tauri capability or a remote-domain allowlist.
 - `kernel.js` / `kernel.ts` is only a thin wrapper around `__TAURI_INTERNALS__.invoke`, used to
@@ -244,4 +255,4 @@ npm test
 The suite generates every stack/layout combination, packs the `vanilla` and `simple` ones (with
 `--allow-incomplete`), checks the parity gate (including that `vite-react-simple` covers all 66 methods),
 and verifies the zip header and artifact name. It also drives the key state machines, the three
-prompts, the full wizard through a fake terminal, and the i18n catalogs (25 cases).
+prompts, the full wizard through a fake terminal, and the i18n catalogs (26 cases).
