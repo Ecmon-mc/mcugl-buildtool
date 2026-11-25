@@ -1,0 +1,357 @@
+/*
+ * 外壳：页面铺满整个窗口，顶部导航以悬浮胶囊覆盖在内容之上。
+ * 胶囊不占布局高度，页面内容从窗口顶边开始、滚动时从胶囊下方穿过。
+ */
+
+.shell {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  background: var(--app-bg);
+}
+
+/* 壁纸 + 页面 + 导航的定位层：整块铺满窗口，作为外壳的坐标基准。 */
+.glass-source {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+/*
+ * 导航定位条：窗口顶部 64px 一条，只用来把白胶囊放到真实胶囊的位置上。
+ * 白胶囊的位置/尺寸运行时由 syncSceneBar() 覆盖，这里是首帧默认值。
+ */
+.nav-band {
+  --nav-bar-left: 0px;
+  --nav-bar-top: 10px;
+  --nav-bar-w: 0px;
+  --nav-bar-h: 0px;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  height: 64px;
+  /* 这一条既是导航定位基准，也是无边框窗口的拖拽区，所以要能接收鼠标事件 */
+  pointer-events: auto;
+}
+
+/* 壁纸 + 页面内容的合成层。 */
+.shell-scene {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+/*
+ * 背景：不再用照片壁纸，改成「一层主题底色 + 居中的大号启动器图标」。
+ * 图标只做底纹，透明度按明暗模式给不同值，避免浅色下发灰、深色下发亮。
+ */
+.shell-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  display: grid;
+  place-items: center;
+  background: var(--shell-backdrop);
+  pointer-events: none;
+  transition: background-color var(--dur-normal) linear;
+}
+
+/* 图标本体 + 可换色的镐头层：两层同尺寸叠放，镐头层用 mask 只盖住镐头 */
+
+
+.page-host,
+.nav-dock {
+  z-index: 1;
+}
+
+/* 定位与居中用外层，避免胶囊自身的毛玻璃背景被拉伸到整行 */
+.nav-dock {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10; /* 低于弹层（20）与 Toast（40） */
+  display: flex;
+  justify-content: center;
+  padding-top: 14px; /* 胶囊与窗口顶边的留白 */
+  pointer-events: none; /* 让内容在胶囊两侧仍可交互 */
+}
+
+.nav-stack {
+  position: relative;
+  display: flex;
+  pointer-events: none;
+}
+
+/*
+ * 胶囊本体：只负责布局与命中。
+ * 外层 .nav-dock / .nav-stack 是 pointer-events:none（胶囊两侧的内容仍可交互），
+ * 所以这里必须显式恢复 auto，否则按钮跟着继承 none、整个导航点不动。
+ */
+.nav-pill {
+  pointer-events: auto;
+  user-select: none;
+  /* 选中底与 hover 底相对胶囊内缩的留白，两边保持一致 */
+  --nav-inset: 2px;
+}
+
+/*
+ * 胶囊本体：始终是一块白色磨砂玻璃。
+ * 位置/尺寸由 Shell.tsx 的 syncSceneBar() 按真实胶囊的 rect 写进 --nav-bar-*。
+ */
+.nav-scene-bar {
+  position: absolute;
+  left: var(--nav-bar-left, 0px);
+  top: var(--nav-bar-top, 10px);
+  z-index: 3; /* 压住页面内容，但仍低于导航按钮（nav-dock 的 z-index 10） */
+  width: var(--nav-bar-w, 0px);
+  height: var(--nav-bar-h, 0px);
+  pointer-events: none;
+}
+
+/* 选中的白色小胶囊：位置与宽度由脚本按当前按钮计算，切换时滑过去 */
+.nav-indicator {
+  position: absolute;
+  top: var(--nav-inset);
+  bottom: var(--nav-inset);
+  left: 0;
+  z-index: 1;
+  border-radius: 10px;
+  background: var(--nav-chip-fill);
+  box-shadow: none;
+  pointer-events: none;
+  /* 平时只过渡 opacity：位置变化由 .slide 负责 */
+  transition: opacity 120ms linear;
+}
+
+.nav-indicator.slide {
+  transition:
+    transform 260ms cubic-bezier(0.34, 0.9, 0.3, 1),
+    width 260ms cubic-bezier(0.34, 0.9, 0.3, 1),
+    opacity 120ms linear;
+}
+
+/* 胶囊内的导航按钮：文字压在滑块之上，选中态自身不再上底色 */
+.nav-pill .btn.topnav {
+  position: relative;
+  z-index: 2;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 9px;
+}
+
+.nav-pill .btn.topnav.active {
+  background: transparent;
+  color: var(--app-accent-deep);
+  font-weight: 600;
+}
+
+/*
+ * hover 底改成胶囊里的内缩小胶囊（::before），和选中底用同一个内缩量，
+ * 上下边距才一致；直接给按钮上背景会贴着胶囊上下边缘、比选中底大一圈。
+ */
+.nav-pill .btn.topnav::before {
+  content: "";
+  position: absolute;
+  inset: var(--nav-inset);
+  z-index: -1;
+  border-radius: 9px;
+  background: transparent;
+  transition: background-color 120ms linear;
+  pointer-events: none;
+}
+
+.nav-pill .btn.topnav:hover {
+  background: transparent;
+  color: var(--app-ink-2);
+}
+
+.nav-pill .btn.topnav:hover::before {
+  background: rgb(var(--app-shade-rgb) / 6%);
+}
+
+.nav-pill .btn.topnav.active:hover {
+  background: transparent;
+  color: var(--app-accent-deep);
+}
+
+.nav-pill .btn.topnav.active:hover::before {
+  background: transparent;
+}
+
+/*
+ * 导航条：从「悬浮胶囊」收成一整条贴合内容的工具条——
+ * 圆角只留 14px，投影压到最轻，不要再有胶囊那种鼓起来的观感。
+ */
+.nav-scene-bar {
+  border: 1px solid rgb(var(--app-shade-rgb) / 6%);
+  border-radius: 14px;
+  box-shadow: var(--neu-shadow-sm);
+  background-color: var(--nav-bar-fill);
+}
+
+.nav-pill .btn.topnav img {
+  width: 16px;
+  height: 16px;
+}
+
+/* 导航图标走 mask 着色，颜色直接继承按钮的 currentColor */
+.nav-pill .btn.topnav .topnav-icon {
+  width: 16px;
+  height: 16px;
+  opacity: 0.86;
+  transition: opacity var(--dur-fast) linear;
+}
+
+.nav-pill .btn.topnav:hover .topnav-icon,
+.nav-pill .btn.topnav.active .topnav-icon {
+  opacity: 1;
+}
+
+.page-host {
+  position: relative;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 后端错误条：浮在内容栏上方，不参与布局 */
+.backend-error {
+  position: absolute;
+  top: 72px;
+  left: 50%;
+  z-index: 45;
+  margin: 0;
+  transform: translateX(-50%);
+  padding: 8px 12px;
+  border: 1px solid #e8c4c0;
+  border-radius: 8px;
+  background: var(--app-red-bg);
+  color: var(--app-red);
+  font-size: 11.5px;
+  pointer-events: none;
+}
+
+/* ---------- 大圆角内容栏（除「启动」外统一使用） ---------- */
+
+.page-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.page-stage.panel {
+  height: calc(100% - 84px);
+  margin: 64px 20px 20px;
+  padding: 14px;
+}
+
+/*
+ * 栏体是常驻的伪元素：切换页面时只改透明度，不创建/销毁 backdrop-filter 层，
+ * 避免首次出现时「先看到边框、后补上模糊」的跳帧。
+ */
+.page-stage::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: 18px;
+  background-color: var(--neu-panel);
+  box-shadow: var(--neu-shadow-lg);
+  pointer-events: none;
+  opacity: 0;
+}
+
+/*
+ * 只在「进入」时淡入：离开时目标状态没有 transition，栏体会立即消失，
+ * 避免栏体外框在缩回全幅的瞬间还残留一帧可见。
+ */
+.page-stage.panel::before {
+  opacity: 1;
+  transition: opacity 170ms linear;
+}
+
+/*
+ * 回「启动」时：栏体先随内容一起淡出，再换回无栏布局，
+ * 否则会在换页那一刻直接消失、并伴随一次布局跳变。
+ */
+.page-stage.is-out::before {
+  opacity: 0;
+  transition: opacity 130ms linear;
+}
+
+/* 内容层压在栏体之上 */
+.page-stage > .page-fade {
+  position: relative;
+  z-index: 1;
+}
+
+.page-fade {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* 栏内页面不再自加内边距，留白由大圆角栏统一提供 */
+.page-stage.panel > .page-fade > .page,
+.page-stage.panel > .page-fade > .extras {
+  padding: 0;
+}
+
+/* 页面内容淡出淡入（大圆角栏由上面的 ::before 单独过渡） */
+.page-fade.is-out {
+  opacity: 0;
+  transition: opacity 130ms linear;
+}
+
+.page-fade.is-in {
+  animation: stage-in 160ms ease-out both;
+}
+
+@keyframes stage-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.toast {
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  z-index: 40;
+  max-width: 420px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  background: var(--app-sidebar);
+  color: var(--app-sidebar-text);
+  font-size: 12px;
+  line-height: 1.55;
+  box-shadow: var(--shadow-card);
+  word-break: break-all;
+  animation: toast-in 200ms cubic-bezier(0.22, 0.88, 0.3, 1) both;
+}
+
+/* 弹出：从左边缘向右滑入；收起：再向左滑出 */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(calc(-100% - 24px));
+  }
+}
+
+@keyframes toast-out {
+  to {
+    opacity: 0;
+    transform: translateX(calc(-100% - 24px));
+  }
+}
+
+.toast.is-leaving {
+  animation: toast-out 180ms ease-in both;
+}

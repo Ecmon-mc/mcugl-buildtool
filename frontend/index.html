@@ -1,100 +1,14 @@
 <!doctype html>
 <html lang="zh-CN">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>MCUGL 命令终端</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/MCUGLogo.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Theresia V1.1</title>
   </head>
+
   <body>
-    <!-- 背景：程序化画出来的方块全景（不依赖任何图片资源） -->
-    <canvas id="panorama" aria-hidden="true"></canvas>
-    <div id="sky-tint" aria-hidden="true"></div>
-    <div id="weather" aria-hidden="true"></div>
-    <div id="flash" aria-hidden="true"></div>
-
-    <!-- F3 调试屏 -->
-    <div id="debug" hidden></div>
-
-    <!-- 成就提示 -->
-    <div id="toasts"></div>
-
-    <!-- /title -->
-    <div id="big-title" hidden></div>
-
-    <!-- 聊天区：输出、候选、输入框，全部贴底 -->
-    <main id="console">
-      <div id="log" role="log" aria-live="polite"></div>
-
-      <div id="suggest" role="listbox" aria-label="命令补全候选" hidden></div>
-
-      <label id="bar">
-        <span class="sr-only">命令输入</span>
-        <input
-          id="cmd"
-          type="text"
-          autocomplete="off"
-          autocapitalize="off"
-          autocorrect="off"
-          spellcheck="false"
-          aria-autocomplete="list"
-          aria-controls="suggest"
-          placeholder="/help"
-        />
-        <span id="hint" aria-hidden="true"></span>
-      </label>
-    </main>
-
-    <!-- 死亡界面 -->
-    <section id="death" hidden aria-label="你死了">
-      <div class="death-inner">
-        <h1>你死了！</h1>
-        <p id="death-cause">被苦力怕炸死了</p>
-        <p class="death-score">得分：<span id="death-score">0</span></p>
-        <div class="death-actions">
-          <button type="button" class="mc-btn" data-act="respawn">重生</button>
-          <button type="button" class="mc-btn" data-act="clearlog">回到出生点</button>
-        </div>
-        <p class="death-tip">按 Esc 或点「重生」继续</p>
-      </div>
-    </section>
-
-    <!-- 暂停菜单（Esc） -->
-    <section id="pause" hidden aria-label="游戏菜单">
-      <div class="pause-inner">
-        <h2>游戏菜单</h2>
-        <button type="button" class="mc-btn wide" data-act="resume">回到游戏</button>
-        <button type="button" class="mc-btn wide" data-act="help">命令列表</button>
-        <button type="button" class="mc-btn wide" data-act="about">关于本前端</button>
-        <p class="pause-tip">Esc 关闭 · 输入 / 使用命令</p>
-      </div>
-    </section>
-
-    <!-- 启动失败时把错误显示出来，而不是留一块黑屏 -->
-    <div id="boot-error" hidden></div>
-
-    <script>
-      (() => {
-        const box = document.getElementById("boot-error");
-        const show = (title, detail) => {
-          box.hidden = false;
-          box.textContent = "";
-          const h = document.createElement("h2");
-          h.textContent = title;
-          const p = document.createElement("pre");
-          p.textContent = String(detail || "未知错误");
-          box.append(h, p);
-        };
-        addEventListener("error", (event) => {
-          if (event.target && event.target !== window) return;
-          show("前端启动失败", event.error && event.error.stack ? event.error.stack : event.message);
-        });
-        addEventListener("unhandledrejection", (event) => {
-          const reason = event.reason;
-          show("前端出现未处理的异常", reason && reason.stack ? reason.stack : reason);
-        });
-      })();
-    </script>
-    <script type="module" src="./app.js"></script>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

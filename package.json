@@ -1,13 +1,30 @@
 {
-  "name": "mcugl-cmd-front",
+  "name": "theresia",
   "private": true,
-  "version": "0.2.1",
+  "version": "1.1.0",
   "type": "module",
-  "description": "把 MCUGL 启动器做成 Minecraft 命令台的前端包（/ 命令、Tab 补全、候选列表）。",
+  "description": "Theresia V1.1：MCUG Launcher 的第三方前端（16 色主题 / 明暗双模式 / 实例轨道首页）",
   "scripts": {
-    "build": "node scripts/pack.mjs frontend",
-    "pack": "node scripts/pack.mjs frontend",
-    "test": "node scripts/selftest.mjs",
-    "serve": "node scripts/serve.mjs"
+    "dev": "vite build --watch",
+    "dev:demo": "vite --mode demo",
+    "build": "tsc --noEmit && vite build",
+    "build:demo": "tsc --noEmit && vite build --mode demo",
+    "typecheck": "tsc --noEmit",
+    "pack": "node scripts/pack.mjs dist/frontend"
+  },
+  "dependencies": {
+    "@chakra-ui/react": "^3.38.0",
+    "@emotion/react": "^11.14.0",
+    "@tauri-apps/api": "^2",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.1.8",
+    "@types/react-dom": "^19.1.6",
+    "@vitejs/plugin-react": "^6.0.2",
+    "typescript": "~6.0.3",
+    "vite": "^8.0.16"
   }
 }
