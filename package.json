@@ -1,0 +1,13 @@
+{
+  "name": "mcugl-cmd-front",
+  "private": true,
+  "version": "0.2.1",
+  "type": "module",
+  "description": "把 MCUGL 启动器做成 Minecraft 命令台的前端包（/ 命令、Tab 补全、候选列表）。",
+  "scripts": {
+    "build": "node scripts/pack.mjs frontend",
+    "pack": "node scripts/pack.mjs frontend",
+    "test": "node scripts/selftest.mjs",
+    "serve": "node scripts/serve.mjs"
+  }
+}

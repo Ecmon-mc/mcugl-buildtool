@@ -1,0 +1,9 @@
+{
+  "identifier": "mcugl.cmdfront",
+  "name": "MCUGL 命令终端",
+  "version": "0.2.1",
+  "kernelApi": "^1.0.0",
+  "entry": "index.html",
+  "description": "把启动器变成 Minecraft 命令台：/ 命令、Tab 补全、输入框上方的候选列表。",
+  "author": "Ecmon"
+}
