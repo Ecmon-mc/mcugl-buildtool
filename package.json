@@ -1,0 +1,38 @@
+{
+  "name": "@mcugl/frontpack-sdk",
+  "version": "0.1.0",
+  "description": "Typed client for the MCUGL Launcher kernel (mcugl.kernel/v1).",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc -p tsconfig.json --noEmit"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Ecmon-mc/mcugl-buildtool.git"
+  },
+  "homepage": "https://github.com/Ecmon-mc/mcugl-buildtool/tree/sdk#readme",
+  "bugs": {
+    "url": "https://github.com/Ecmon-mc/mcugl-buildtool/issues"
+  }
+}
