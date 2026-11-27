@@ -1,4 +1,4 @@
-# mcugl-buildtool
+# @mcugl/frontpack-buildtool
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
@@ -15,12 +15,12 @@ yet**. Inside the repo you can run it directly:
 node .\mcugl-buildtool\bin\mcugl-buildtool.mjs my-frontend
 ```
 
-After publishing, the same thing is `npx mcugl-buildtool my-frontend`.
+After publishing, the same thing is `npx @mcugl/frontpack-buildtool my-frontend`.
 
 > **This package has no build step of its own.** Running `npm run build` inside `mcugl-buildtool/`
 > only prints an explanation. Real builds happen in the generated project: `vite-react` compiles with
 > Vite, while `vanilla`/`simple` treat `npm run build` as an alias of `npm run pack`.
-> `npx mcugl-buildtool` works from any directory.
+> `npx @mcugl/frontpack-buildtool` works from any directory.
 
 ## Interactive wizard
 
@@ -66,10 +66,10 @@ mcugl-buildtool [directory] [options]
 Examples:
 
 ```powershell
-npx mcugl-buildtool my-frontend --yes
-npx mcugl-buildtool my-frontend -t vite-react --identifier com.example.demo --name "Demo Frontend"
-npx mcugl-buildtool my-frontend --yes -t vite-react --layout simple
-npx mcugl-buildtool my-frontend --yes --lang zh
+npx @mcugl/frontpack-buildtool my-frontend --yes
+npx @mcugl/frontpack-buildtool my-frontend -t vite-react --identifier com.example.demo --name "Demo Frontend"
+npx @mcugl/frontpack-buildtool my-frontend --yes -t vite-react --layout simple
+npx @mcugl/frontpack-buildtool my-frontend --yes --lang zh
 ```
 
 ## Templates

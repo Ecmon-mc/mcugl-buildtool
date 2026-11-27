@@ -260,9 +260,10 @@ test("名称里的引号与尖括号会按文件类型转义", () => {
 
 test("脚手架包自己的 npm run build 只给提示", () => {
   const pkg = JSON.parse(readFileSync(join(packageRoot, "package.json"), "utf8"));
+  assert.equal(pkg.name, "@mcugl/frontpack-buildtool");
   assert.ok(pkg.scripts.build, "应有 build 脚本，避免 Missing script");
   assert.match(pkg.scripts.build, /no build step/);
-  assert.match(pkg.scripts.build, /mcugl-buildtool/);
+  assert.match(pkg.scripts.build, /@mcugl\/frontpack-buildtool/);
 });
 
 test("identifier 校验与 Rust 安装器保持一致", () => {
@@ -316,13 +317,15 @@ test("--layout simple 生成 vite-react-simple 工程", () => {
   }
   const app = readFileSync(join(src, "App.tsx"), "utf8");
   assert.match(app, /首页/);
-  assert.match(app, /launchGame/);
+  assert.match(app, /kernel\.launchGame/);
+  assert.match(app, /kernel\.selectInstance/);
   const kernel = readFileSync(join(src, "kernel.ts"), "utf8");
-  assert.match(kernel, /"launch_game"/);
-  assert.match(kernel, /"select_instance"/);
+  assert.match(kernel, /@mcugl\/frontpack-sdk/);
+  assert.match(kernel, /export const kernel = createKernel\(\);/);
 
   const packageJson = JSON.parse(readFileSync(join(target, "package.json"), "utf8"));
   assert.equal(packageJson.scripts.pack, "node scripts/pack.mjs dist/frontend");
+  assert.ok(packageJson.dependencies["@mcugl/frontpack-sdk"], "应依赖 @mcugl/frontpack-sdk");
   assert.ok(existsSync(join(target, "scripts", "kernel-methods.json")));
 
   const badLayout = runCli([tempProject(), "--yes", "--layout", "nope"]);
@@ -330,21 +333,19 @@ test("--layout simple 生成 vite-react-simple 工程", () => {
   assert.match(badLayout.stderr, /Unknown layout/);
 });
 
-test("vite-react-simple 的命令页覆盖全部 66 个内核方法", () => {
+test("vite-react-simple 的命令页覆盖全部 66 个内核方法", async () => {
   const kernel = readFileSync(
     join(packageRoot, "templates", "vite-react-simple", "frontend", "src", "kernel.ts"),
     "utf8",
   );
-  const start = kernel.indexOf("export const ALL_METHODS = [");
-  assert.ok(start >= 0, "应导出 ALL_METHODS");
-  const end = kernel.indexOf("] as const;", start);
-  assert.ok(end > start, "ALL_METHODS 应以 as const 结束");
-  const methods = [...kernel.slice(start, end).matchAll(/"([a-z_]+)"/g)].map((match) => match[1]);
+  assert.match(kernel, /@mcugl\/frontpack-sdk/, "应从 @mcugl/frontpack-sdk 导入内核方法表");
+  assert.match(kernel, /export const ALL_METHODS = KERNEL_METHODS;/, "应导出 ALL_METHODS");
 
+  const { KERNEL_METHODS } = await import("@mcugl/frontpack-sdk");
   const canonical = JSON.parse(
     readFileSync(join(packageRoot, "shared", "kernel-methods.json"), "utf8"),
   ).methods;
-  assert.deepEqual(methods, canonical, "ALL_METHODS 必须与 kernel-methods.json 一致");
+  assert.deepEqual([...KERNEL_METHODS], canonical, "SDK 的 KERNEL_METHODS 必须与 kernel-methods.json 一致");
 
   const app = readFileSync(
     join(packageRoot, "templates", "vite-react-simple", "frontend", "src", "App.tsx"),

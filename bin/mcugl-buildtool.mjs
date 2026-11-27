@@ -202,7 +202,7 @@ async function main() {
 try {
   await main();
 } catch (error) {
-  console.error(`\n[mcugl-buildtool] ${error instanceof Error ? error.message : String(error)}`);
+  console.error(`\n[@mcugl/frontpack-buildtool] ${error instanceof Error ? error.message : String(error)}`);
   process.exitCode = 1;
 } finally {
   closePrompts();

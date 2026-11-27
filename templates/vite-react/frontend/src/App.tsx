@@ -24,13 +24,11 @@ import {
   type SharedKey,
 } from "./actions";
 import {
-  call,
   describeError,
-  kernelAvailable,
-  manifest as readManifest,
+  kernel,
   type ApiErrorBody,
+  type CommandName,
   type KernelManifest,
-  type ResourceSnapshot,
 } from "./kernel";
 
 interface LogEntry {
@@ -99,7 +97,7 @@ export default function App() {
 
   const syncRevision = useCallback(async () => {
     try {
-      const snapshot = await call<ResourceSnapshot>("get_settings");
+      const snapshot = await kernel.getSettings();
       if (typeof snapshot.revision === "number") {
         setShared((current) => ({
           ...current,
@@ -115,7 +113,7 @@ export default function App() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const info = await readManifest();
+      const info = await kernel.manifest();
       setManifest(info);
       setManifestError(null);
     } catch (error) {
@@ -135,7 +133,11 @@ export default function App() {
     async (action: Action, args: Record<string, unknown>) => {
       setRunning(action.id);
       try {
-        const data = await call(action.command, args);
+        const invoke = kernel.call as (
+          command: CommandName,
+          payload?: Record<string, unknown>,
+        ) => Promise<unknown>;
+        const data = await invoke(action.command as CommandName, args);
         setLog((entries) =>
           [
             {
@@ -198,7 +200,7 @@ export default function App() {
     [manifest, covered],
   );
 
-  const connected = kernelAvailable();
+  const connected = kernel.available;
 
   return (
     <Box p={{ base: 4, lg: 6 }} maxW="1400px" mx="auto">

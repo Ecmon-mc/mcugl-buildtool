@@ -16,17 +16,10 @@ import {
 } from "@chakra-ui/react";
 import {
   ALL_METHODS,
-  call,
   describeError,
-  launchGame,
-  listAccounts,
-  listInstances,
-  listTasks,
-  manifest,
-  overview,
-  selectAccount,
-  selectInstance,
+  kernel,
   type AccountInfo,
+  type CommandName,
   type InstanceInfo,
   type KernelManifest,
   type LauncherOverview,
@@ -68,11 +61,11 @@ export default function App() {
     setBusy(true);
     try {
       const [info, ov, catalog, accountSnapshot, taskSnapshot] = await Promise.all([
-        manifest(),
-        overview<LauncherOverview>(),
-        listInstances(),
-        listAccounts(),
-        listTasks(),
+        kernel.manifest(),
+        kernel.getOverview(),
+        kernel.listInstances(),
+        kernel.listAccounts(),
+        kernel.listTasks(),
       ]);
       setManifestInfo(info);
       setOverviewInfo(ov.data);
@@ -103,7 +96,7 @@ export default function App() {
 
   async function chooseInstance(id: string) {
     try {
-      const saved = await selectInstance(id);
+      const saved = await kernel.selectInstance({ instanceId: id });
       notify("ok", saved.message);
       await load();
     } catch (error) {
@@ -113,7 +106,7 @@ export default function App() {
 
   async function chooseAccount(id: string) {
     try {
-      const saved = await selectAccount(id);
+      const saved = await kernel.selectAccount({ accountId: id });
       notify("ok", saved.message);
       await load();
     } catch (error) {
@@ -132,8 +125,11 @@ export default function App() {
       return;
     }
     try {
-      const saved = await launchGame(selectedInstance.id, account.id);
-      notify("ok", saved.message);
+      const accepted = await kernel.launchGame({
+        instanceId: selectedInstance.id,
+        accountId: account.id,
+      });
+      notify("ok", `已开始启动（任务 ${accepted.taskId}）`);
     } catch (error) {
       const detail = describeError(error);
       notify("err", `${detail.code}：${detail.message}`);
@@ -435,7 +431,11 @@ function ConsolePage() {
         }
         parsed = value as Record<string, unknown>;
       }
-      const result = await call<unknown>(command.trim(), parsed);
+      const invoke = kernel.call as (
+        name: CommandName,
+        payload?: Record<string, unknown>,
+      ) => Promise<unknown>;
+      const result = await invoke(command.trim() as CommandName, parsed);
       setOutput(JSON.stringify(result, null, 2));
     } catch (failure) {
       setOutput(null);

@@ -1,11 +1,18 @@
 {
-  "name": "mcugl-buildtool",
+  "name": "@mcugl/frontpack-buildtool",
   "version": "0.1.0",
   "description": "Scaffold, run and package third-party frontends for MCUGL Launcher (.mcuglf).",
   "license": "MIT",
   "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "bin": {
+    "frontpack-buildtool": "./bin/mcugl-buildtool.mjs",
     "mcugl-buildtool": "./bin/mcugl-buildtool.mjs"
+  },
+  "dependencies": {
+    "@mcugl/frontpack-sdk": "^0.1.0"
   },
   "files": [
     "bin",
@@ -21,7 +28,7 @@
   "scripts": {
     "start": "node ./bin/mcugl-buildtool.mjs",
     "test": "node tests/create.test.mjs && node tests/i18n.test.mjs && node tests/ui.test.mjs && node tests/wizard.test.mjs",
-    "build": "node -e \"console.log('mcugl-buildtool is a scaffolding package with no build step. Generate a project first: node ./bin/mcugl-buildtool.mjs <directory>, then run npm run build (vite-react) or npm run pack (vanilla) inside it.')\""
+    "build": "node -e \"console.log('@mcugl/frontpack-buildtool is a scaffolding package with no build step. Generate a project first: npx @mcugl/frontpack-buildtool <directory>, then run npm run build (vite-react) or npm run pack (vanilla) inside it.')\""
   },
   "repository": {
     "type": "git",

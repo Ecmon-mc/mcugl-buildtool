@@ -1,4 +1,4 @@
-# mcugl-buildtool
+# @mcugl/frontpack-buildtool
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
@@ -13,11 +13,11 @@
 node .\mcugl-buildtool\bin\mcugl-buildtool.mjs my-frontend
 ```
 
-发布之后等价于 `npx mcugl-buildtool my-frontend`。
+发布之后等价于 `npx @mcugl/frontpack-buildtool my-frontend`。
 
 > **本包自身没有构建步骤。** 在 `mcugl-buildtool/` 里跑 `npm run build` 只会打印一段说明。
 > 真正的构建发生在生成的项目里：`vite-react` 用 Vite 编译，`vanilla` / `simple` 把
-> `npm run build` 当作 `npm run pack` 的别名。`npx mcugl-buildtool` 可以在任意目录运行。
+> `npm run build` 当作 `npm run pack` 的别名。`npx @mcugl/frontpack-buildtool` 可以在任意目录运行。
 
 ## 交互式向导
 
@@ -58,10 +58,10 @@ mcugl-buildtool [目录] [选项]
 示例：
 
 ```powershell
-npx mcugl-buildtool my-frontend --yes
-npx mcugl-buildtool my-frontend -t vite-react --identifier com.example.demo --name "Demo Frontend"
-npx mcugl-buildtool my-frontend --yes -t vite-react --layout simple
-npx mcugl-buildtool my-frontend --yes --lang zh
+npx @mcugl/frontpack-buildtool my-frontend --yes
+npx @mcugl/frontpack-buildtool my-frontend -t vite-react --identifier com.example.demo --name "Demo Frontend"
+npx @mcugl/frontpack-buildtool my-frontend --yes -t vite-react --layout simple
+npx @mcugl/frontpack-buildtool my-frontend --yes --lang zh
 ```
 
 ## 模板
